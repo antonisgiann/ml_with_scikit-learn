@@ -1,2 +1,2 @@
 # scikit-learn
-ML project with scikit-learn
+ML projects with scikit-learn
