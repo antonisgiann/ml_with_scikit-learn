@@ -21,6 +21,7 @@ DATA_PATH = os.path.join("../datasets", PROJECT_NAME)
 od.download(PROJECT_URL, "../datasets")
 # %%
 df = pd.read_csv(os.path.join(DATA_PATH, "realtor-data.csv"))
+df.head()
 # %%
 df.info()
 # %%
@@ -30,7 +31,6 @@ df.describe()
 df.describe(include='O').T
 # %%
 df.isnull().sum()
-
 # Status seems irrelevant , prev_sold_date 71% missing values
 df.drop(columns=["status", "prev_sold_date"], inplace=True)
 # %% 
@@ -67,6 +67,10 @@ for c in ["bed", "bath", "acre_lot", "house_size", "price"]:
     
     df_dropna_all = df_dropna_all.loc[~find_outliers(df_dropna_all[c]), :]
 print(df_dropna_all.shape)
+
+df_dropna_all["bed"] = df_dropna_all["bed"].astype(int)
+df_dropna_all["bath"] = df_dropna_all["bath"].astype(int)
+df_dropna_all["house_size"] = df_dropna_all["house_size"].astype(int)
 # %%
 sns.scatterplot(df_dropna_all, x="acre_lot", y="price", hue="state")
 plt.show()
@@ -75,10 +79,17 @@ plt.show()
 corr_mat = df_dropna_all[["house_size", "bed", "acre_lot", "bath", "price"]].corr()
 mask = np.triu(np.ones_like(corr_mat)).astype(bool)
 mask = mask[1:, :-1]
-corr_mat = corr_mat.iloc[1:,:-1].copy()
-sns.heatmap(corr_mat, annot=True, fmt=".2f", cmap="crest", mask=mask)
+corr_mat = corr_mat.iloc[1:,:-1]
+sns.heatmap(corr_mat, annot=True, linewidth=1.5, fmt=".2f", cmap="crest", mask=mask)
 plt.show()
 sns.kdeplot(df_dropna_all["price"], fill=True, color="#0092A0")
+plt.show()
+sns.boxplot(df_dropna_all, x="state", y="price")
+plt.xticks(rotation=45)
+plt.show()
+sns.boxplot(df_dropna_all, x="bed", y="price")
+plt.show()
+sns.boxplot(df_dropna_all, x="bath", y="price")
 plt.show()
 # %% Normalize the target
 #df_dropna_all["price"] = stats.boxcox(df_dropna_all["price"])[0]
@@ -86,6 +97,9 @@ plt.show()
 # %%
 X_dropna_all = df_dropna_all.drop(columns=["price"])
 y_dropna_all = df_dropna_all["price"].copy()
+##############
+####MODELS####
+##############
 # %% First lets try only with numerical columns
 X_dropna_all_num = df_dropna_all.select_dtypes(exclude=["object"])
 X_train_dropna_all_num, X_test_dropna_all_num, y_train_dropna_all, y_test_dropna_all = train_test_split(X_dropna_all_num, y_dropna_all, test_size=0.2, random_state=47)
