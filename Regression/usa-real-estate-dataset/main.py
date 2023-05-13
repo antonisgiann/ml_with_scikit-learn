@@ -5,12 +5,13 @@ import numpy as np
 import os
 import pandas as pd
 import seaborn as sns
-from scipy import stats
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
 from sklearn.linear_model import Ridge
 from sklearn.ensemble import RandomForestRegressor
 from catboost import CatBoostRegressor
+from sklearn.model_selection import cross_val_score
+
 
 if not os.path.exists("../datasets"):
     os.makedirs("../datasets")
@@ -49,7 +50,10 @@ plt.show()
 # %%
 # %% Drop rows that have at least one null value
 df_dropna_all = df.dropna()
-# %% Removing outliers
+# %% From the output of df.describe() we see that we have outliars. I will remove them using the rule anything outside 
+# the interval [Q1 - interquartile range * 1.5,  Q3 + interquartile range * 1.5] is an outliar.
+# Running this in an iterative manner for every column gives better performance compared to precalculating
+# them for each column before removing the outliars.
 def find_outliers(col):
 
     Q1, Q3 = col.describe()[["25%", "75%"]]
@@ -72,9 +76,9 @@ df_dropna_all["bed"] = df_dropna_all["bed"].astype(int)
 df_dropna_all["bath"] = df_dropna_all["bath"].astype(int)
 df_dropna_all["house_size"] = df_dropna_all["house_size"].astype(int)
 # %%
-sns.scatterplot(df_dropna_all, x="acre_lot", y="price", hue="state")
+sns.scatterplot(df_dropna_all, x="acre_lot", y="price", hue="state", alpha=0.1)
 plt.show()
-sns.scatterplot(df_dropna_all, x="house_size", y="price", hue="state")
+sns.scatterplot(df_dropna_all, x="house_size", y="price", hue="state", alpha=0.1)
 plt.show()
 corr_mat = df_dropna_all[["house_size", "bed", "acre_lot", "bath", "price"]].corr()
 mask = np.triu(np.ones_like(corr_mat)).astype(bool)
@@ -104,28 +108,28 @@ y_dropna_all = df_dropna_all["price"].copy()
 X_dropna_all_num = df_dropna_all.select_dtypes(exclude=["object"])
 X_train_dropna_all_num, X_test_dropna_all_num, y_train_dropna_all, y_test_dropna_all = train_test_split(X_dropna_all_num, y_dropna_all, test_size=0.2, random_state=47)
 
-
-reg = RandomForestRegressor(n_jobs=-1, random_state=47)
-reg.fit(X_train_dropna_all_num, y_train_dropna_all)
-preds = reg.predict(X_test_dropna_all_num)
-print(np.sqrt(mean_squared_error(preds, y_test_dropna_all)))
-# %% Adding categorical columns
+forest_reg = RandomForestRegressor(n_jobs=-1, random_state=47)
+score = np.sqrt(-cross_val_score(forest_reg, X_train_dropna_all_num, y_train_dropna_all, scoring="neg_mean_squared_error", cv=5, n_jobs=-1))
+print("Cross validation Mean squared error:", round(np.mean(score), 5))
+# %% Ridge regression
+l2_reg = Ridge(random_state=47)
+score = np.sqrt(-cross_val_score(l2_reg, X_train_dropna_all_num, y_train_dropna_all, scoring="neg_mean_squared_error", cv=5, n_jobs=-1))
+print("Cross validation Mean squared error:", round(np.mean(score), 5))
+# %% Catboost
+cat = CatBoostRegressor(random_state=47, verbose=0)
+score = np.sqrt(-cross_val_score(cat, X_train_dropna_all_num, y_train_dropna_all, scoring="neg_mean_squared_error", cv=5, n_jobs=-1))
+print("Cross validation Mean squared error:", round(np.mean(score), 5))
+# %% Adding categorical columns to check performance
 X_dropna_all_oh = pd.get_dummies(X_dropna_all)
 X_train_dropna_all_oh, X_test_dropna_all_oh, y_train_dropna_oh, y_test_dropna_oh = train_test_split(X_dropna_all_oh, y_dropna_all, test_size=0.2, random_state=47)
 
-reg = RandomForestRegressor(n_jobs=-1, random_state=47)
-reg.fit(X_train_dropna_all_oh, y_train_dropna_oh)
-preds = reg.predict(X_test_dropna_all_oh)
-print(np.sqrt(mean_squared_error(preds, y_test_dropna_oh)))
-# From the above looks like state and city add a lot of noise and hurt performance a lot
-# %%
-cat = CatBoostRegressor(random_state=47)
-cat.fit(X_train_dropna_all_num, y_train_dropna_all, verbose=0)
-preds = cat.predict(X_test_dropna_all_num)
-print(np.sqrt(mean_squared_error(preds, y_test_dropna_all)))
-# %%
-rid = Ridge(random_state=47)
-rid.fit(X_train_dropna_all_num, y_train_dropna_all)
-preds = rid.predict(X_test_dropna_all_num)
-print(round(np.sqrt(mean_squared_error(preds, y_test_dropna_all)), 5))
-# %%
+# Random forest
+forest_reg = RandomForestRegressor(n_jobs=-1, random_state=47)
+score = np.sqrt(-cross_val_score(forest_reg, X_train_dropna_all_oh, y_train_dropna_oh, scoring="neg_mean_squared_error", cv=5, n_jobs=-1))
+print("Cross validation Mean squared error:", round(np.mean(score), 5))
+# %% Ridge regression
+l2_reg = Ridge(random_state=47)
+score = np.sqrt(-cross_val_score(l2_reg, X_train_dropna_all_oh, y_train_dropna_oh, scoring="neg_mean_squared_error", cv=5, n_jobs=-1))
+print("Cross validation Mean squared error:", round(np.mean(score), 5))
+# %% From the above looks like state and city add a lot of noise and hurt performance a lot
+# so it is better to use only the numerical features. Ridge regression was the best performing model.
