@@ -105,7 +105,7 @@ y_dropna_all = df_dropna_all["price"].copy()
 ####MODELS####
 ##############
 # %% First lets try only with numerical columns
-X_dropna_all_num = df_dropna_all.select_dtypes(exclude=["object"])
+X_dropna_all_num = X_dropna_all.select_dtypes(exclude=["object"])
 X_train_dropna_all_num, X_test_dropna_all_num, y_train_dropna_all, y_test_dropna_all = train_test_split(X_dropna_all_num, y_dropna_all, test_size=0.2, random_state=47)
 
 forest_reg = RandomForestRegressor(n_jobs=-1, random_state=47)
@@ -131,5 +131,4 @@ print("Cross validation Mean squared error:", round(np.mean(score), 5))
 l2_reg = Ridge(random_state=47)
 score = np.sqrt(-cross_val_score(l2_reg, X_train_dropna_all_oh, y_train_dropna_oh, scoring="neg_mean_squared_error", cv=5, n_jobs=-1))
 print("Cross validation Mean squared error:", round(np.mean(score), 5))
-# %% From the above looks like state and city add a lot of noise and hurt performance a lot
-# so it is better to use only the numerical features. Ridge regression was the best performing model.
+# %%
